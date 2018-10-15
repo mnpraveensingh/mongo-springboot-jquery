@@ -1,0 +1,323 @@
+public static Map<String, Integer> populateNameForLocationReport() {
+
+		Map<String, Integer> columnName = new HashMap<>();
+		columnName.put("AccountName", 0);
+		columnName.put("ClientType", 1);
+//		columnName.put("AccountLogoUrl", 2);
+		columnName.put("AccountInceptionDate", 2);
+		columnName.put("ClientIndustry", 3);
+		columnName.put("AccountState", 4);
+		columnName.put("AccountRegion", 5);
+		columnName.put("County", 6);
+		columnName.put("AccountCountry", 7);
+		columnName.put("AccountCity", 8);
+		columnName.put("addressLine1", 9);
+		columnName.put("addressLine2", 10);
+		columnName.put("ZipCode", 11);
+		columnName.put("DNbNumber", 12);
+		columnName.put("AccountCurrency", 13);
+		columnName.put("AccountPD", 14);
+		columnName.put("AccountBI", 15);
+		columnName.put("AccountTIV", 16);
+		columnName.put("Status", 17);
+		columnName.put("CustomerClass", 18);
+		columnName.put("EmailID", 19);
+		columnName.put("BoardPhone", 20);
+		columnName.put("BoardPhoneCode", 21);
+		columnName.put("Currency", 22);
+		columnName.put("AccountCategory", 23);
+		columnName.put("AccountManagerName", 24);
+		columnName.put("ParentOrganizationName", 25);
+		columnName.put("Comments", 26);
+		columnName.put("assignRiskManager", 27);
+		// columnName.put("TenantId", 29);
+		columnName.put("businessGroup", 28);
+		columnName.put("LineofBusiness", 29);
+		columnName.put("subVertical", 30);
+		columnName.put("surveyType", 31);
+		columnName.put("accountRiskEngineer", 32);
+
+		return columnName;
+	}
+	public static List<String> mandatList() {
+		List<String> list = new ArrayList<>();
+		list.add("AccountState");
+		list.add("AccountRegion");
+		list.add("County");
+		list.add("AccountCountry");
+		list.add("AccountCity");
+		list.add("addressLine1");
+		list.add("addressLine2");
+		list.add("ZipCode");
+		list.add("EmailID");
+		list.add("BoardPhone");
+		list.add("BoardPhoneCode");
+		list.add("LineofBusiness");
+		list.add("AccountName");
+		list.add("Currency");
+		list.add("AccountCategory");
+		list.add("CustomerClass");
+		list.add("businessGroup");
+		list.add("subVertical");
+		return list;
+	}
+
+
+
+@SuppressWarnings("static-access")
+	public static String createExcel(Map<String, Integer> columnName, MasterManager masterManager) throws IOException {
+
+		XSSFWorkbook xcelObject = new XSSFWorkbook();
+		XSSFSheet sheet = xcelObject.createSheet("accountReport");
+
+		List<String> list = mandatList();
+		CellStyle color = xcelObject.createCellStyle();
+
+		Row header = sheet.createRow(0);
+		for (Entry<String, Integer> entry : columnName.entrySet()) {
+			Cell cell = header.createCell(entry.getValue());
+			// for mandatory fields index color
+			if (list.contains(entry.getKey())) {
+				cell.setCellType(cell.CELL_TYPE_STRING);
+				color.setFillForegroundColor(IndexedColors.RED.getIndex());
+				color.setFillPattern(CellStyle.SOLID_FOREGROUND);
+				cell.setCellValue(entry.getKey());
+				cell.setCellStyle(color);
+			} else {
+				cell.setCellType(cell.CELL_TYPE_STRING);
+				cell.setCellValue(entry.getKey());
+			}
+			// cell.setCellValue(entry.getKey());
+			XSSFCellStyle style = xcelObject.createCellStyle();
+			style.setBorderTop((short) 6); // double lines border
+			style.setBorderBottom((short) 1); // single line border
+			XSSFFont font = xcelObject.createFont();
+			font.setFontHeightInPoints((short) 11);
+			font.setBoldweight(XSSFFont.BOLDWEIGHT_BOLD);
+			style.setFont(font);
+
+			// for creating dropdown with new excelSheet in existing excel
+			XSSFWorkbook workbook = new XSSFWorkbook();
+			Map<String, String> columnType = populateCellTypeForAccountReport();
+			for (Entry<String, String> enty : columnType.entrySet()) {
+				if (entry.getKey().equals(enty.getKey())) {
+					createCellValidation(enty.getValue(), sheet, cell, xcelObject, workbook);
+				}
+			}
+		}
+
+		String reportname = "addAccountExcelsheet" + System.currentTimeMillis();
+		String directoryName = LWBFileUtil.getRequestSurveyReportLocation();
+		String xlsxFilename = directoryName + "/" + reportname + ".xlsx";
+		
+		
+		List<LWBCode> businessGroups = masterManager.getCode("Business Group");
+		List<LWBCode> subVerticals = masterManager.getCode("SUB Vertical");
+		List<CountryInfo> countriesForCurrencyList = masterManager.getCountries();
+		
+		try {
+		MultiExcelSheet.updateInExcel(businessGroups,subVerticals,countriesForCurrencyList,
+				xlsxFilename,xcelObject,sheet);
+		}catch(Exception e) {
+			e.printStackTrace();
+		}
+
+//		FileOutputStream out = new FileOutputStream(new File(xlsxFilename));
+//		xcelObject.write(out);
+//		out.close();
+		return xlsxFilename;
+	}
+
+
+
+public static Map<String, String> populateCellTypeForAccountReport() {
+
+		Map<String, String> cellType = new HashMap<>();
+		cellType.put("AccountName", "String");
+		cellType.put("ClientType", "String");
+		cellType.put("AccountLogoUrl", "String");
+		cellType.put("AccountInceptionDate", "Date");
+		cellType.put("ClientIndustry", "String");
+		cellType.put("addressLine1", "String");
+		cellType.put("addressLine2", "String");
+		cellType.put("ZipCode", "String");
+		cellType.put("DNbNumber", "String");
+		cellType.put("AccountCurrency", "String");
+		cellType.put("AccountPD", "String");
+		cellType.put("AccountBI", "String");
+		cellType.put("AccountTIV", "String");
+		cellType.put("Status", "String");
+		cellType.put("CustomerClass", "String");
+		cellType.put("EmailID", "String");
+		cellType.put("BoardPhone", "String");
+		cellType.put("BoardPhoneCode", "String");
+		 cellType.put("Currency", "String"); // 23
+		cellType.put("AccountCategory", "String");
+		cellType.put("AccountManagerName", "String");
+		cellType.put("CreatedBy", "String");
+		cellType.put("TimeStamp", "String");
+		cellType.put("ParentOrganizationName", "String");
+		cellType.put("Comments", "String");
+		cellType.put("TenantId", "Integer");
+		cellType.put("AccountRegion", "singleSelect");
+		cellType.put("LineofBusiness", "singleSelect");
+
+		
+		cellType.put("businessGroup", "singleSelect"); // 29
+		cellType.put("subVertical", "singleSelect"); // 31
+		cellType.put("surveyType", "singleSelect");
+		cellType.put("accountRiskEngineer", "String");
+		
+		return cellType;
+	}
+
+
+private static void createCellValidation(String cellType, XSSFSheet sheet, Cell cell1, XSSFWorkbook xcelObject,
+			XSSFWorkbook workbook) throws IOException {
+
+		CreationHelper createHelper = xcelObject.getCreationHelper();
+		XSSFDataValidationHelper dvHelper = new XSSFDataValidationHelper(sheet);
+		DataValidationHelper validationHelper = new XSSFDataValidationHelper(sheet);
+		MasterManager masterManager = LWBServiceUtil.getApplicationObjectByClassName(MasterManager.class);
+
+		if (cellType.equals("Integer")) {
+			XSSFDataValidationConstraint dvConstraint = (XSSFDataValidationConstraint) dvHelper.createNumericConstraint(
+					XSSFDataValidationConstraint.ValidationType.DECIMAL,
+					XSSFDataValidationConstraint.OperatorType.BETWEEN, String.valueOf(Float.MIN_VALUE),
+					String.valueOf(Float.MAX_VALUE));
+			CellRangeAddressList addressList = new CellRangeAddressList(1, 200, cell1.getColumnIndex(),
+					cell1.getColumnIndex());
+
+			XSSFDataValidation validation = (XSSFDataValidation) dvHelper.createValidation(dvConstraint, addressList);
+			validation.setSuppressDropDownArrow(false);
+			validation.setShowErrorBox(true);
+			validation.createErrorBox("Error Box", "Please enter integer value");
+
+			sheet.addValidationData(validation);
+
+		} else if (cellType.equals("Date")) {
+			XSSFCellStyle dateCellStyle = xcelObject.createCellStyle();
+			dateCellStyle.setDataFormat(createHelper.createDataFormat().getFormat("MM/dd/yyyy"));
+			cell1.setCellStyle(dateCellStyle);
+
+			XSSFDataValidationConstraint dvConstraint = (XSSFDataValidationConstraint) dvHelper.createDateConstraint(
+					XSSFDataValidationConstraint.ValidationType.DATE, "01/01/2017", "31/12/2017", "mm/dd/yyyy");
+
+			CellRangeAddressList addressList = new CellRangeAddressList(1, 200, cell1.getColumnIndex(),
+					cell1.getColumnIndex());
+
+			XSSFDataValidation validation = (XSSFDataValidation) dvHelper.createValidation(dvConstraint, addressList);
+			validation.setSuppressDropDownArrow(false);
+			validation.setShowErrorBox(true);
+			validation.createErrorBox("Error Box", "Please enter Valid date value");
+			sheet.addValidationData(validation);
+
+		} else if (cellType.equals("singleSelect")) {
+			if (cell1.getStringCellValue().equals("AccountRegion")) {
+				List<Region> regions = masterManager.getRegion();
+				String[] dropdownVal = new String[regions.size()];
+				for (int cnt = 0; cnt < regions.size(); cnt++) {
+					dropdownVal[cnt] = regions.get(cnt).getRegionCode();
+				}
+				CellRangeAddressList addressList = new CellRangeAddressList(1, 200, cell1.getColumnIndex(),
+						cell1.getColumnIndex());
+				DataValidationConstraint constraint = validationHelper.createExplicitListConstraint(dropdownVal);
+				DataValidation dataValidation = validationHelper.createValidation(constraint, addressList);
+				dataValidation.setSuppressDropDownArrow(true);
+				sheet.addValidationData(dataValidation);
+			} else if (cell1.getStringCellValue().equals("LineofBusiness")) {
+				List<LineOfBusiness> lineOfBusinesses = masterManager.getUsersLobList();
+				String[] dropdownVal = new String[lineOfBusinesses.size()];
+				for (int cnt = 0; cnt < lineOfBusinesses.size(); cnt++) {
+
+					
+					dropdownVal[cnt] = lineOfBusinesses.get(cnt).getLobDesc();
+					/*
+					 * dropdownVal[cnt] = lineOfBusinesses.get(cnt).getLobId() + "-" +
+					 * lineOfBusinesses.get(cnt).getLobDesc();
+					 */
+				}
+				CellRangeAddressList addressList = new CellRangeAddressList(1, 200, cell1.getColumnIndex(),
+						cell1.getColumnIndex());
+				DataValidationConstraint constraint = validationHelper.createExplicitListConstraint(dropdownVal);
+				DataValidation dataValidation = validationHelper.createValidation(constraint, addressList);
+				dataValidation.setSuppressDropDownArrow(true);
+				sheet.addValidationData(dataValidation);
+			}
+			else if (cell1.getStringCellValue().equals("surveyType")) {
+				List<SurveyType> surveyType = masterManager
+						.getSurveyTypeListByTenantId(AuthorizationServiceUtil.getTenantIdForLoggedInUser());
+				String[] dropdownVal = new String[surveyType.size()];
+				for (int cnt = 0; cnt < surveyType.size(); cnt++) {
+					dropdownVal[cnt] = surveyType.get(cnt).getSurveyTypeDesc();//+"="+surveyType.get(cnt).getSurveyTypeId();
+				}
+				CellRangeAddressList addressList = new CellRangeAddressList(1, 200, cell1.getColumnIndex(),
+						cell1.getColumnIndex());
+				DataValidationConstraint constraint = validationHelper.createExplicitListConstraint(dropdownVal);
+				DataValidation dataValidation = validationHelper.createValidation(constraint, addressList);
+				dataValidation.setSuppressDropDownArrow(true);
+				sheet.addValidationData(dataValidation);
+			}else if (cell1.getStringCellValue().equals("CustomerClass")) {
+				List<LWBCode> businessGroups = masterManager.getCode("CUSTOMER_CLASS");
+				String[] dropdownVal = new String[businessGroups.size()];
+				for (int cnt = 0; cnt < businessGroups.size(); cnt++) {
+					dropdownVal[cnt] = businessGroups.get(cnt).getLwbCodeName();
+				}
+				CellRangeAddressList addressList = new CellRangeAddressList(1, 200, cell1.getColumnIndex(),
+						cell1.getColumnIndex());
+				DataValidationConstraint constraint = validationHelper.createExplicitListConstraint(dropdownVal);
+				DataValidation dataValidation = validationHelper.createValidation(constraint, addressList);
+				dataValidation.setSuppressDropDownArrow(true);
+				sheet.addValidationData(dataValidation);
+			}
+		} else {
+			if (cell1.getStringCellValue().equals("AccountName")) {
+				CellRangeAddressList addressList = new CellRangeAddressList(1, 200, cell1.getColumnIndex(),
+						cell1.getColumnIndex());
+				DataValidationConstraint lengthConstraint = validationHelper
+						.createTextLengthConstraint(DataValidationConstraint.OperatorType.GREATER_THAN, "0", "");
+				DataValidation dataValidation = validationHelper.createValidation(lengthConstraint, addressList);
+				dataValidation.setSuppressDropDownArrow(false);
+				dataValidation.setShowErrorBox(true);
+				dataValidation.createErrorBox("Error Box", "Please enter Value");
+				sheet.addValidationData(dataValidation);
+
+			}
+		}
+	}
+
+
+public static String getRequestSurveyReportLocation(){
+		return PropertyConfigUtil.getPropertyValue("lwb-storage-drive").concat(PropertyConfigUtil.getPropertyValue("lwb-surveyreport-path"));
+	}
+
+
+
+
+public static String getPropertyValue(String propertyKey){
+
+		/* To be removed later. If dev box then use the BPM from dev machine */
+		if("activiti-bpm-rest-url".equals( propertyKey )  ) {
+			String hostname = "Unknown";
+			try
+			{
+			    InetAddress addr;
+			    addr = InetAddress.getLocalHost();
+			    hostname = addr.getHostName();
+			}
+			catch (UnknownHostException ex)
+			{
+			    logger.error("Hostname can not be resolved", ex);
+			}
+			
+			if("A2MD20718".equals( hostname )) {
+				return "http://A2MD20718:8080/activiti-rest/service/";
+			}
+			if("A2ML13880".equals( hostname )) {
+				return "http://A2ML13880:8080/activiti-rest/service/";
+			}
+		}
+		/* To be removed later. If dev box then use the BPM from dev machine */
+		
+		return configProperties.getProperty(propertyKey);
+	}

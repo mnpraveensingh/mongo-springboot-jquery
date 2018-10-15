@@ -1,0 +1,522 @@
+@SuppressWarnings("unchecked")
+	@RequestMapping(value="uploadExcelAccountTemplateFile",method={RequestMethod.POST}) 
+	public String uploadExcelAccountTemplateFile(@RequestParam("documentContent") MultipartFile file,@ModelAttribute("documentInfoForm") RequestDocumentInfoForm documentInfoForm
+			,Map<String, Object> model,final RedirectAttributes attributes)throws Exception{
+		InboundDataInfo inboundDataInfo = new InboundDataInfo();
+		
+		if( FilenameUtils.getExtension(file.getOriginalFilename()).equals("xlsx")){
+
+			ExcelAccountFileUploadWebHelper.parseExcelFile(documentInfoForm,model);
+			ExcelAccountFileUploadWebHelper.validateExcelElement(model,inboundDataInfo);
+				 
+			List<UploadErrorDetail>  excelDbErrorList = (List<UploadErrorDetail>) model.get("excelerror");
+			  
+			  if(excelDbErrorList.isEmpty()){
+				 List<AccountForm> accountForms = (List<AccountForm>) model.get("accountList");		
+				 List<AccountInfo> accounts = ExcelAccountFileUploadWebHelper.
+						 populateAccountFormToAccountInfo(accountForms,masterManager,accountManager,userManager);
+				 accountManager.saveAccounts(accounts);					 
+				 requestSurveyUploadManager.saveInboundDataInfo(inboundDataInfo);
+				 attributes.addFlashAttribute("msg",getLabelMessages("account.added.message",new Integer[]{accounts.size()}));
+				 return "redirect:doBulkUpload";
+			  }else{			
+				  ExcelAccountFileUploadWebHelper.writeErrorInFile(excelDbErrorList,LWBFileUtil.getRequestSurveyReportLocation()+"/excelError.log",messageSource,model);
+				  attributes.addFlashAttribute("accontExcelerror", excelDbErrorList);
+				  return "redirect:doBulkUpload";
+			  }
+			  
+		}else{
+			attributes.addFlashAttribute("fileErrMsg",getLabelMessages("importExcel.error.msg",new String[]{}));
+			return "redirect:doBulkUpload";
+		}
+		
+	}
+
+
+
+
+public static void parseExcelFile(RequestDocumentInfoForm documentInfoForm, Map<String, Object> model) {
+
+		List<AccountForm> accountForms = new ArrayList<AccountForm>();
+		List<UploadErrorDetail> excelErrorList = new ArrayList<UploadErrorDetail>();
+		RequestDocumentInfo requestDocumentInfo = null;
+		FileInputStream fileInputStream = null;
+
+		try {
+			requestDocumentInfo = RequestWebHelper.populateRequestDocumentInfo(documentInfoForm);
+
+			String directoryName = LWBFileUtil.getRequestDocsLocation();
+
+			File theFile = new File(directoryName);
+
+			if (!theFile.exists()) {
+				theFile.mkdirs();// will create
+			}
+
+			if (!StringUtils.isEmpty(requestDocumentInfo.getDocumentName())) {
+				documentInfoForm.getDocumentContent()
+						.transferTo(new File(directoryName + requestDocumentInfo.getDocumentName()));
+				String docId = "1";
+				requestDocumentInfo.setDocumentId(docId);
+				requestDocumentInfo.setUploadedBy(AuthorizationUtil.getLoggedInUser());
+			}
+			final String filePathToBeServed = directoryName + requestDocumentInfo.getDocumentName();
+
+			final File fileToDownload = new File(filePathToBeServed);
+
+			fileInputStream = new FileInputStream(fileToDownload);
+
+			ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+			Validator validator = factory.getValidator();
+
+			XSSFWorkbook workbook = new XSSFWorkbook(fileInputStream);
+
+			XSSFSheet sheet = workbook.getSheetAt(0);
+
+			Iterator<Row> iterator = sheet.iterator();
+
+			while (iterator.hasNext()) {
+				Row row = iterator.next();
+				if (row != null && row.getRowNum() >= 1) {
+					AccountForm accountForm = new AccountForm();
+					accountForm.setAccountName(String.valueOf(row.getCell(0)));
+					// accountForm.setClientType(String.valueOf( row.getCell(1)));
+//					accountForm.setAccountLogoUrl(String.valueOf(row.getCell(2)));
+					accountForm.setAccountInceptionDate(String.valueOf(row.getCell(2)));
+					accountForm.setClientIndustry(String.valueOf(row.getCell(3)));
+					accountForm.setState(String.valueOf(row.getCell(4)));
+					accountForm.setRegion(String.valueOf(row.getCell(5)));
+					accountForm.setCounty(String.valueOf(row.getCell(6)));
+					accountForm.setCountry(String.valueOf(row.getCell(7)));
+					accountForm.setCity(String.valueOf(row.getCell(8)));
+					accountForm.setAddressLine1(String.valueOf(row.getCell(9)));
+					accountForm.setAddressLine2(String.valueOf(row.getCell(10)));
+					accountForm.setZipCode(String.valueOf(row.getCell(11)));
+					accountForm.setdNbNumber(String.valueOf(row.getCell(12)));
+					accountForm.setAccountCurrency(String.valueOf(row.getCell(13)));
+					accountForm.setAccountPD(String.valueOf(row.getCell(14)));
+					accountForm.setAccountBI(String.valueOf(row.getCell(15)));
+					accountForm.setAccountTIV(String.valueOf(row.getCell(16)));
+					accountForm.setStatus(String.valueOf(row.getCell(17)));
+					accountForm.setCustomerClass(String.valueOf(row.getCell(18)));
+					accountForm.setEmailID(String.valueOf(row.getCell(19)));
+					accountForm.setBoardPhone(String.valueOf(row.getCell(20)));
+					accountForm.setBoardPhoneCode(String.valueOf(row.getCell(21)));
+					accountForm.setCurrency(String.valueOf(row.getCell(22)));
+					accountForm.setAccountCategory(String.valueOf(row.getCell(23)));
+					accountForm.setAccountManagerName(String.valueOf(row.getCell(24)));
+					accountForm.setParentOrganizationName(String.valueOf(row.getCell(25)));
+					accountForm.setComments(String.valueOf(row.getCell(26)));
+					accountForm.setAssignRiskManager(String.valueOf(row.getCell(27)));
+					// accountForm.setTenantId(Integer.parseInt(String.valueOf( row.getCell(29))));
+					/*
+					 * if (String.valueOf(row.getCell(30)).contains("-")) { String[] lobStr =
+					 * String.valueOf(row.getCell(30)).split("-"); List<String> lineofBusiness = new
+					 * ArrayList<String>(); // LineOfBusiness business = new
+					 * LineOfBusiness(Integer.parseInt(lobStr[0]),lobStr[1]);
+					 * lineofBusiness.add(lobStr[1]); accountForm.setLobs(lineofBusiness); }
+					 */
+					String lobStr = String.valueOf(row.getCell(29));
+					List<String> lineofBusiness = new ArrayList<String>();
+					lineofBusiness.add(lobStr);
+					accountForm.setLobs(lineofBusiness);
+					accountForm.setBusinessGroup(String.valueOf(row.getCell(28)));
+					accountForm.setSubVertical(String.valueOf(row.getCell(30)));
+					accountForm.setSurveyTypeName(String.valueOf(row.getCell(31)));
+					String accountRiskEngineerList = String.valueOf(row.getCell(32));
+					List<String> list = new ArrayList<String>();
+					list.add(accountRiskEngineerList);
+					String[] accountRiskEngineer = new String[list.size()];
+					for (int i = 0; i < list.size(); i++) {
+						accountRiskEngineer[i] = list.get(i);
+					}
+					accountForm.setAccountRiskEngineerList(accountRiskEngineer);
+					if (accountForm != null) {
+
+						UploadErrorDetail excelerror = null;
+						Set<ConstraintViolation<AccountForm>> constraintViolations = validator.validate(accountForm);
+						if (constraintViolations.size() > 0) {
+							excelerror = new UploadErrorDetail();
+							List<String> errorMsgList = new ArrayList<String>();
+							excelerror.setRowNumber(row.getRowNum());
+							for (ConstraintViolation<AccountForm> constraintViolation : constraintViolations) {
+
+								errorMsgList.add(constraintViolation.getMessage());
+							}
+							excelerror.setErrorMessage(errorMsgList);
+						}
+						if (excelerror != null) {
+							excelErrorList.add(excelerror);
+						} else {
+							accountForms.add(accountForm);
+						}
+
+					}
+				}
+
+			}
+			fileInputStream.close();
+			model.put("accountList", accountForms);
+			model.put("excelerror", excelErrorList);
+			model.put("fileName", requestDocumentInfo.getDocumentName());
+		} catch (Exception e) {
+
+			logger.error("Error downloading Excel Template file", e);
+		}
+
+		finally {
+			try {
+				fileInputStream.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+
+public static RequestDocumentInfo populateRequestDocumentInfo(RequestDocumentInfoForm documentInfoForm) {
+		RequestDocumentInfo documentInfo=new RequestDocumentInfo();
+		if(documentInfoForm.getDocumentContent() != null){
+		documentInfo.setDocumentName(documentInfoForm.getDocumentContent().getOriginalFilename());
+		}else{
+			documentInfo.setDocumentName("");
+		}
+		documentInfo.setDescription(documentInfoForm.getDescription());
+		documentInfo.setLocationId(documentInfoForm.getLocationId());
+		documentInfo.setLocationName(documentInfoForm.getLocationName());
+		documentInfo.setUploadedOn(new Date());
+		return documentInfo;
+
+	}
+
+
+
+public static String getRequestDocsLocation(){
+		return PropertyConfigUtil.getPropertyValue("lwb-storage-drive").concat(PropertyConfigUtil.getPropertyValue("lwb-requestdocs-path"));
+	}
+
+
+
+
+@SuppressWarnings("unchecked")
+	public static void validateExcelElement(Map<String, Object> model, InboundDataInfo inboundDataInfo) {
+
+		List<AccountForm> accountList = new ArrayList<AccountForm>();
+		List<AccountForm> accountForms = (List<AccountForm>) model.get("accountList");
+
+		List<UploadErrorDetail> excelErrorList = (List<UploadErrorDetail>) model.get("excelerror");
+
+		MasterManager masterManager = LWBServiceUtil.getApplicationObjectByClassName(MasterManager.class);
+
+		List<Region> regionList = masterManager.getRegion();
+		List<CountryInfo> countryInfos = masterManager.getCountries();
+		List<StateInfo> stateInfos = masterManager.getStates();
+		List<CountyInfo> countyInfos = masterManager.getCounty();
+		List<CityInfo> cityInfos = masterManager.getCities();
+
+		int count = 0;
+		int successCount = 0;
+		for (AccountForm form : accountForms) {
+
+			if (form != null) {
+
+				UploadErrorDetail excelerror = new UploadErrorDetail();
+				List<String> messages = new ArrayList<String>();
+
+				if (form.getAccountName().equals("null") || form.getRegion().equals("null")
+						|| form.getCounty().equals("null") || form.getCountry().equals("null")
+						|| form.getState().equals("null") || form.getCity().equals("null")
+						|| form.getAddressLine1().equals("null") || form.getAddressLine2().equals("null")
+						|| form.getZipCode().equals("null") || form.getEmailID().equals("null")
+						|| form.getBoardPhone().equals("null") || form.getCurrency().equals("null")
+						|| form.getCustomerClass().equals("null") || form.getLobs().equals("null")) {
+					messages.add("label.messages.madtryFields");
+				}
+
+				if (StringUtils.isEmpty(form.getAddressLine1())) {
+					messages.add("label.messages.madtryFields");
+				}
+
+				if (!isRegionExists(regionList, form.getRegion())) {
+
+					messages.add("label.createLocation.errorMessage.invalidRegion");
+				}
+
+				CountryInfo countryInfo = containsCountryCode(countryInfos, form.getCountry());
+				if (countryInfo == null) {
+					messages.add("label.createLocation.errorMessage.invalidCountry");
+				}
+
+				if (!isStateExists(stateInfos, form.getState())) {
+					messages.add("label.createLocation.errorMessage.invalidState");
+				}
+
+				if (!isCountyExists(countyInfos, form.getCounty())) {
+					messages.add("label.createLocation.errorMessage.invalidCounty");
+				}
+
+				if (!isCityExists(cityInfos, form.getCity())) {
+					messages.add("label.createLocation.errorMessage.invalidCity");
+				}
+
+				if (countryInfo != null) {
+					String zipCode = form.getZipCode();
+					String patternBasedOnCountry = countryInfo.getZipCodePattern();
+					Pattern p = Pattern.compile(patternBasedOnCountry);
+
+					if (!p.matcher(zipCode).matches()) {
+						messages.add("label.createLocation.errorMessage.invalidZip");
+					}
+
+				}
+
+				if (messages != null && messages.size() > 0) {
+
+					excelerror.setErrorMessage(messages);
+					excelerror.setRowNumber(count);
+					excelErrorList.add(excelerror);
+				} else {
+					accountList.add(form);
+					successCount++;
+				}
+				count++;
+			}
+
+		}
+
+		List<UploadError> errorList = new ArrayList<UploadError>();
+		excelErrorList.stream().forEach(error -> {
+			UploadError uploadError = new UploadError();
+			uploadError.setSerialNumber(error.getSerialNumber());
+			uploadError.setRowNumber(error.getRowNumber());
+			uploadError.setErrorMessage(error.getErrorMessage());
+			errorList.add(uploadError);
+		});
+		SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyyMMdd H:m:s");
+
+		inboundDataInfo.setUploadInstanceId(dateFormatter.format(new Date()));
+		inboundDataInfo.setFilePath(model.get("fileName").toString());
+		inboundDataInfo.setFileType("Xlsx");
+		inboundDataInfo.setSource("Location");
+		inboundDataInfo.setSuccessfulRecordCount((long) successCount);
+		inboundDataInfo.setTotalRecordCount((long) count);
+		inboundDataInfo.setErrors(errorList);
+		inboundDataInfo.setTenantId(AuthorizationServiceUtil.getTenantIdForLoggedInUser());
+
+		model.put("excelerror", excelErrorList);
+		model.put("accountList", accountList);
+	}
+
+
+
+
+
+public static List<AccountInfo> populateAccountFormToAccountInfo(List<AccountForm> accountForms,
+			MasterManager masterManager, AccountManager accountManager,UserManager userManager) {
+		List<AccountInfo> accountInfos = new ArrayList<AccountInfo>();
+
+		accountForms.stream().forEach(form -> {
+			AccountInfo accountInfo = new AccountInfo();
+			List<String> list = form.getLobs();			
+			List<LineOfBusiness> lobs = new ArrayList<>();
+			for (String str : list) {
+				String[] s = str.split(",");
+				for(String a : s) {
+					LineOfBusiness lob = new LineOfBusiness();
+					lob.setLobDesc(a);
+					List<LineOfBusiness> list1 = masterManager.getUsersLobList();
+					list1.stream().forEach(item->{
+						if(item.getLobDesc().equals(a))
+							lob.setLobId(item.getLobId());
+					});
+					lobs.add(lob);
+				}
+				
+			}
+			String accountId = accountManager.generateAccountId(accountInfo);
+			accountInfo.setAccountId(accountId);	
+			accountInfo.setLineofBusiness(lobs);
+			accountInfo.setBusinessGroup(form.getBusinessGroup());
+			accountInfo.setAccountName(form.getAccountName());
+			// accountInfo.setClientType(String.valueOf( row.getCell(1)));
+			
+			/*if(!form.getAccountLogoUrl().equals("null")) { 
+				accountInfo.setAccountLogoUrl(form.getAccountLogoUrl());
+			}*/
+//			accountInfo.setAccountLogoUrl(form.getAccountLogoUrl());
+			accountInfo.setAccountInceptionDate(form.getAccountInceptionDate());
+			accountInfo.setClientIndustry(form.getClientIndustry());
+			accountInfo.setAccountState(masterManager.getStateInfoByStateCode(form.getState()));
+			accountInfo.setAccountRegion(masterManager.getRegionByRegionCode(form.getRegion()));
+			accountInfo.setCounty(masterManager.getCountyInfoByCountyCode(form.getCounty()));
+			accountInfo.setAccountCountry(masterManager.getCountryByCountryCode(form.getCountry()));
+			accountInfo.setAccountCity(masterManager.getCityByCityCode(form.getCity()));
+			accountInfo.setAddressLine1(form.getAddressLine1());
+			accountInfo.setAddressLine2(form.getAddressLine2());
+			accountInfo.setZipCode(form.getZipCode());
+			
+			if(!form.getdNbNumber().equals("null")) {
+				accountInfo.setdNbNumber(form.getdNbNumber());
+			}			
+//			accountInfo.setdNbNumber(form.getdNbNumber());
+			
+			accountInfo.setAccountCurrency(form.getAccountCurrency());
+			accountInfo.setAccountPD(form.getAccountPD());
+			accountInfo.setAccountBI(form.getAccountBI());
+			accountInfo.setAccountTIV(form.getAccountTIV());
+			if (form.getStatus().equals("null")) {
+				accountInfo.setStatus("Draft");
+			} else {
+				accountInfo.setStatus(form.getStatus());
+			}
+			   AuditField auditField = accountInfo.getAuditField();
+				
+				if(auditField==null){
+					auditField = new AuditField();
+					auditField.setCreatedBy(AuthorizationServiceUtil.getLoggedInUser());
+					auditField.setCreatedDate(new Date());
+				}
+				else{
+					auditField.setLastModifiedBy(AuthorizationServiceUtil.getLoggedInUser());
+					auditField.setLastModifiedDate(new Date());
+				}			   
+			   accountInfo.setAuditField(auditField);			
+			accountInfo.setCustomerClass(form.getCustomerClass());
+			accountInfo.setEmailID(form.getEmailID());
+			// accountInfo.setBoardPhone(form.getBoardPhone());
+			// accountInfo.setBoardPhoneCode(form.getBoardPhoneCode());
+			String boardPhone = null, boardPhoneCode = null;
+			long l = (long) Double.parseDouble(form.getBoardPhone());
+			boardPhone = "" + l;
+			accountInfo.setBoardPhone(boardPhone);
+			l = (long) Double.parseDouble(form.getBoardPhoneCode());
+			boardPhoneCode = "" + l;
+			accountInfo.setBoardPhoneCode(boardPhoneCode);
+			accountInfo.setCurrency(form.getCurrency());
+			accountInfo.setAccountCategory(form.getAccountCategory());
+			accountInfo.setAccountManagerName(form.getAccountManagerName());
+			
+			if(!form.getParentOrganizationName().equals("null")) {
+				accountInfo.setParentOrganizationName(form.getParentOrganizationName());
+			}
+			if(!form.getComments().equals("null")) {
+				accountInfo.setComments(form.getComments());
+			}
+			List<BaseUser> base = new ArrayList<>();
+			String[] arr1 = form.getAssignRiskManager().split(",");
+			for (int j = 0; j < arr1.length; j++) {
+				String[] name = arr1[j].trim().split(" ");
+				BaseUser baseUser = new BaseUser();
+				if (name.length == 2) {
+					baseUser.setFirstName(name[0]);
+					baseUser.setLastName(name[1]);
+				} else if(!name[0].isEmpty()){
+					baseUser.setFirstName(name[0]);
+				}
+				base.add(baseUser);
+			}
+			accountInfo.setAccountRiskManager(base);
+			accountInfo.setAssignRiskManager(form.getAssignRiskManager());
+			accountInfo.setTenantId(AuthorizationServiceUtil.getTenantIdForLoggedInUser());
+			accountInfo.setBusinessGroup(form.getBusinessGroup());
+			accountInfo.setSubVertical(form.getSubVertical());			
+			List<SurveyType> surveyType = masterManager
+					.getSurveyTypeListByTenantId(AuthorizationServiceUtil.getTenantIdForLoggedInUser());
+			SurveyType surveyType1 = new SurveyType();
+			surveyType1.setSurveyTypeDesc(form.getSurveyTypeName());			
+			surveyType.stream().forEach(item->{
+				if(item.getSurveyTypeDesc().equals(form.getSurveyTypeName()))
+						surveyType1.setSurveyTypeId(item.getSurveyTypeId());		
+			});
+			accountInfo.setSurveyType(surveyType1);		
+			String[] arr = form.getAccountRiskEngineerList();			
+			List<BaseUser> user = new ArrayList<>();
+			for (int i = 0; i < arr.length; i++) {
+				BaseUser baseUser = new BaseUser();
+				String[] name = arr[i].trim().split(" ");
+				if (name.length == 2) {
+					baseUser.setFirstName(name[0]);
+					baseUser.setLastName(name[1]);
+				} else if(!name[0].isEmpty()) {
+					baseUser.setFirstName(name[0]);
+				}
+				user.add(baseUser);
+			}
+			accountInfo.setAccountRiskEngineer(user);
+			accountInfos.add(accountInfo);
+		});
+
+		return accountInfos;
+	}
+
+
+
+
+public static void writeErrorInFile(List<UploadErrorDetail> excelErrorList, String filePath,
+			MessageSource messageSource, Map<String, Object> model) {
+
+		try (BufferedOutputStream bout = new BufferedOutputStream(new FileOutputStream(filePath))) {
+			Integer validRows = 0;
+			Integer totalProcessRow = 0;
+			@SuppressWarnings("unchecked")
+			List<AccountForm> accountForms = (List<AccountForm>) model.get("accountList");
+			if (accountForms != null) {
+				validRows = accountForms.size();
+			}
+			Integer invalidRows = 0;
+			if (excelErrorList != null) {
+				invalidRows = excelErrorList.size();
+			}
+			totalProcessRow = validRows + invalidRows;
+			int countLoop = 0;
+			for (UploadErrorDetail errorDetail : excelErrorList) {
+
+				StringBuilder builder = new StringBuilder();
+				builder.append("Row No :" + errorDetail.getRowNumber() + " ");
+				int count = 0;
+				for (String message : errorDetail.getErrorMessage()) {
+					builder.append(messageSource.getMessage(message, null, Locale.getDefault()));
+					if (count != errorDetail.getErrorMessage().size() - 1) {
+						builder.append(",");
+					}
+					count++;
+				}
+				builder.append(System.getProperty("line.separator"));
+
+				boolean isLastElem = countLoop == (excelErrorList.size() - 1) ? true : false;
+				if (isLastElem) {
+					builder.append("================================================================================");
+					builder.append(System.getProperty("line.separator"));
+					builder.append(validRows);
+					builder.append(" record(s) valid records found");
+					builder.append(System.getProperty("line.separator"));
+					/*
+					 * builder.append("2 record(s) found duplicate");
+					 * builder.append(System.getProperty("line.separator"));
+					 */
+					builder.append(invalidRows);
+					builder.append(" record(s) are in error");
+					builder.append(System.getProperty("line.separator"));
+					builder.append("total ");
+					builder.append(totalProcessRow);
+					builder.append(" records(s) processed, 0 records updated to Account table");
+					builder.append(System.getProperty("line.separator"));
+					builder.append(System.getProperty("line.separator"));
+					builder.append("Timestamp: ");
+					builder.append(new Date());
+					builder.append(System.getProperty("line.separator"));
+					builder.append("User:");
+					builder.append(AuthorizationUtil.getLoggedInUser());
+
+				}
+				String line = builder.toString();
+				bout.write(line.getBytes());
+				countLoop++;
+			}
+			bout.close();
+
+		} catch (IOException e) {
+			logger.error("Error downloading Excel Template file", e);
+		}
+
+	}
