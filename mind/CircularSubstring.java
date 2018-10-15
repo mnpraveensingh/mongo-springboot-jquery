@@ -1,4 +1,4 @@
-package com.mind;
+package mind;
 
 public class CircularSubstring {
 
